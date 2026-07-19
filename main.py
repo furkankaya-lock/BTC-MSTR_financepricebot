@@ -38,14 +38,14 @@ STOCK_API_URL = "https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
 # Yeni bir hisse eklemek için STOCKS listesine sembolü eklemen yeterli.
 # --------------------------------------------------------------------------
 COINS = [
-    {"id": "bitcoin", "symbol": "BTC", "emoji": "🟠"},
+    {"id": "bitcoin", "symbol": "BTC", "emoji": "🟡"},
     {"id": "ethereum", "symbol": "ETH", "emoji": "🔷"},
     {"id": "solana", "symbol": "SOL", "emoji": "🟣"},
-    {"id": "binancecoin", "symbol": "BNB", "emoji": "🟡"},
+    {"id": "binancecoin", "symbol": "BNB", "emoji": "☣️"},
 ]
 
 STOCKS = [
-    {"symbol": "MSTR", "emoji": "📊"},
+    {"symbol": "MSTR", "emoji": "🔮"},
 ]
 
 
