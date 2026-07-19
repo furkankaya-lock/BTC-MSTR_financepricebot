@@ -14,11 +14,17 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # --------------------------------------------------------------------------
-# AYARLAR (Token ve kanal bilgisi ORTAM DEĞİŞKENİ olarak Railway'de girilir,
-# kod içine YAZILMAZ — güvenlik için)
+# AYARLAR (Hepsi ORTAM DEĞİŞKENİ olarak Railway'de girilir, kod içine
+# YAZILMAZ — güvenlik için ve kolayca değiştirebilmen için)
 # --------------------------------------------------------------------------
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 CHANNEL_USERNAME = os.environ.get("CHANNEL_USERNAME")  # örn: @finance_ServisAcademy
+
+# İkinci hedef: bir grup ve o grup içindeki belirli bir oda (topic).
+# İkisi de opsiyonel — boş bırakırsan bot sadece kanala mesaj atar.
+GROUP_CHAT_ID = os.environ.get("GROUP_CHAT_ID")      # örn: -1004498727604
+GROUP_THREAD_ID = os.environ.get("GROUP_THREAD_ID")  # örn: 3
+
 INTERVAL_SECONDS = 180  # 3 dakika
 
 TELEGRAM_API_URL = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
@@ -27,8 +33,8 @@ STOCK_API_URL = "https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
 
 # --------------------------------------------------------------------------
 # TAKİP EDİLECEK VARLIKLAR
-# Buraya yeni bir kripto para eklemek için COINS listesine yeni bir satır
-# eklemen yeterli. "id" değeri CoinGecko'daki resmi coin id'si olmalı.
+# Yeni bir kripto para eklemek için COINS listesine yeni bir satır eklemen
+# yeterli ("id" değeri CoinGecko'daki resmi coin id'si olmalı).
 # Yeni bir hisse eklemek için STOCKS listesine sembolü eklemen yeterli.
 # --------------------------------------------------------------------------
 COINS = [
@@ -107,35 +113,54 @@ def build_message():
     return "\n".join(lines)
 
 
-def send_to_channel(text):
-    """Mesajı Telegram kanalına gönderir."""
+def get_targets():
+    """Mesajın gönderileceği tüm hedefleri (kanal + varsa grup/oda) döner."""
+    targets = []
+
+    if CHANNEL_USERNAME:
+        targets.append({"chat_id": CHANNEL_USERNAME, "thread_id": None})
+
+    if GROUP_CHAT_ID:
+        targets.append({"chat_id": GROUP_CHAT_ID, "thread_id": GROUP_THREAD_ID or None})
+
+    return targets
+
+
+def send_message(chat_id, text, thread_id=None):
+    """Belirtilen chat_id'ye (ve varsa oda/thread'e) mesaj gönderir."""
     try:
         payload = {
-            "chat_id": CHANNEL_USERNAME,
+            "chat_id": chat_id,
             "text": text,
             "parse_mode": "HTML",
         }
+        if thread_id:
+            payload["message_thread_id"] = thread_id
+
         response = requests.post(TELEGRAM_API_URL, data=payload, timeout=10)
         response.raise_for_status()
-        logger.info("Mesaj başarıyla gönderildi.")
+        logger.info(f"Mesaj başarıyla gönderildi -> chat_id={chat_id}, thread_id={thread_id}")
     except Exception as e:
-        logger.error(f"Mesaj gönderilemedi: {e}")
+        logger.error(f"Mesaj gönderilemedi (chat_id={chat_id}, thread_id={thread_id}): {e}")
 
 
 def main():
-    if not BOT_TOKEN or not CHANNEL_USERNAME:
-        logger.error(
-            "BOT_TOKEN veya CHANNEL_USERNAME ortam değişkeni eksik! "
-            "Railway ayarlarından eklemeyi unutma."
-        )
+    if not BOT_TOKEN:
+        logger.error("BOT_TOKEN ortam değişkeni eksik!")
         return
 
-    logger.info("Fiyat Botu başlatıldı. Her %s saniyede bir çalışacak.", INTERVAL_SECONDS)
+    targets = get_targets()
+    if not targets:
+        logger.error("Hiçbir hedef (CHANNEL_USERNAME veya GROUP_CHAT_ID) tanımlı değil!")
+        return
+
+    logger.info("Fiyat Botu başlatıldı. Her %s saniyede bir çalışacak. Hedef sayısı: %s", INTERVAL_SECONDS, len(targets))
 
     while True:
         message = build_message()
         if message:
-            send_to_channel(message)
+            for target in targets:
+                send_message(target["chat_id"], message, target["thread_id"])
         else:
             logger.warning("Bu döngüde hiç veri alınamadığı için mesaj gönderilmedi.")
 
